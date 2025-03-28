@@ -3728,6 +3728,7 @@ name = "relayer"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "alloy-dyn-abi",
  "ethers",
  "eyre",
  "serde_json",

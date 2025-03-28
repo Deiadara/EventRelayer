@@ -1,14 +1,36 @@
-use std::{fs, thread, time};
+use std::{convert::TryInto, fs, str, thread, time};
 use alloy::{
-    primitives::{B256,Address,keccak256},
+    primitives::{keccak256, Address, Bytes, B256,hex},
     providers::{Provider, ProviderBuilder},
-    rpc::types::{Filter,eth::BlockNumberOrTag},
+    rpc::types::{eth::BlockNumberOrTag, Filter}
 };
 use eyre::Result;
 use serde_json::Value;
+use alloy_dyn_abi::{DynSolType, DynSolValue};
 
 const SRC_RPC: &str = "http://localhost:8545";
 const DST_RPC: &str = "http://localhost:8546";
+
+
+fn decode_string_from_hex(data: &Bytes) -> Result<String> {
+    let raw = data.as_ref();
+
+    if raw.len() < 64 {
+        return Err(eyre::eyre!("Log data too short to be valid ABI-encoded string"));
+    }
+
+    // The string length is at bytes 32..64 (second word)
+    let length_bytes = &raw[32..64];
+    let str_len = u32::from_be_bytes(length_bytes[28..32].try_into().unwrap()) as usize;
+
+    // The string data starts at byte 64
+    let string_data = &raw[64..64 + str_len];
+
+    // Convert to UTF-8 string
+    let decoded = str::from_utf8(string_data)?.to_string();
+    Ok(decoded)
+}
+
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -49,15 +71,39 @@ async fn main() -> Result<()> {
 
         for log in logs {
             println!("Transfer event: {log:?}");
+            // extract address and amount
+            let topics = log.topics();
+            let raw_topic = topics.get(1).expect("Expected at least 2 topics");
+
+            // topic is 32 bytes, we need the last 20 bytes
+            let raw_bytes: &[u8] = raw_topic.as_ref();
+            let address_bytes: [u8; 20] = raw_bytes[12..].try_into().expect("Expected 20-byte slice");
+
+            let sender = Address::from(address_bytes);
+
+            println!("Sender address: {:?}", sender);
+            
+            let result = usize::from_str_radix("2A2F", 16);
+
+
+            let raw_data = log.data().data.clone();
+
+            println!("{:?}",raw_data);
+
+            let string_from_hex = decode_string_from_hex(&raw_data)?;
+            println!("{:?}",string_from_hex);
+            let my_int = string_from_hex.parse::<i32>().unwrap();
+            println!("{:?}",my_int);
+
+            // success
         }
 
-        let one_sec = time::Duration::from_millis(2000);
-        thread::sleep(one_sec);
+        let two_sec = time::Duration::from_millis(2000);
+        thread::sleep(two_sec);
 
 
     }
 }
 
 
-// todo : build contracts with forge using cli
-// todo : deployer imports ABI and Bytecode from a file
+// todo : build contracts with forge using cli (needed?)
