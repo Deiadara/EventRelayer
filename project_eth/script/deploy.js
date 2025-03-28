@@ -1,6 +1,8 @@
 import fs from "fs";
+import path from "path";
 import solc from "solc";
 import { ethers } from "ethers";
+const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
 async function build_and_deploy(wallet,contract_name) {
     const file_name = contract_name + '.sol';
@@ -32,6 +34,20 @@ async function build_and_deploy(wallet,contract_name) {
 
     console.log(`${contract_name} deployed to:`, await contract.getAddress());
     console.log(JSON.stringify(abi))
+
+    const outputDir = path.join(__dirname, '..', "data");
+    const filePathABI = path.join(outputDir, `${contract_name}ABI.txt`);
+    const filePathBytecode = path.join(outputDir, `${contract_name}Bytecode.txt`);
+
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir);
+    }
+
+    fs.writeFileSync(filePathABI, JSON.stringify(abi, null, 2));
+    console.log(`ABI saved to ${filePathABI}`);
+
+    fs.writeFileSync(filePathBytecode, JSON.stringify(bytecode, null, 2));
+    console.log(`Bytecode saved to ${filePathBytecode}`);
 }
 
 
